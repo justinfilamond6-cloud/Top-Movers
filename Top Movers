@@ -1,0 +1,148 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
+import '../services/google_calendar_service.dart';
+
+class QRBookingFullScreen extends StatefulWidget {
+  @override
+  _QRBookingFullScreenState createState() => _QRBookingFullScreenState();
+}
+
+class _QRBookingFullScreenState extends State<QRBookingFullScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  // Controllers for booking fields
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _moveTypeController = TextEditingController();
+  final TextEditingController _pickupController = TextEditingController();
+  final TextEditingController _dropoffController = TextEditingController();
+
+  String scannedCode = 'Not scanned yet';
+
+  // QR Code scanning function
+  Future<void> scanQRCode() async {
+    try {
+      final barcodeScanRes = await FlutterBarcodeScanner.scanBarcode(
+          '#ff6666', 'Cancel', true, ScanMode.QR);
+      if (!mounted) return;
+
+      if (barcodeScanRes != '-1') {
+        setState(() {
+          scannedCode = barcodeScanRes;
+        });
+        _fillBookingFromQRCode(barcodeScanRes);
+      }
+    } catch (e) {
+      setState(() {
+        scannedCode = 'Error: $e';
+      });
+    }
+  }
+
+  // Mock function to parse QR code and fill fields
+  void _fillBookingFromQRCode(String code) {
+    // Example QR code format: "name:John Doe;email:johndoe@mail.com;phone:1234567890;move:Truck+Movers;pickup:123 Main St;dropoff:456 Elm St"
+    final parts = code.split(';');
+    for (var part in parts) {
+      final keyValue = part.split(':');
+      if (keyValue.length != 2) continue;
+
+      final key = keyValue[0].toLowerCase();
+      final value = keyValue[1];
+
+      switch (key) {
+        case 'name':
+          _nameController.text = value;
+          break;
+        case 'email':
+          _emailController.text = value;
+          break;
+        case 'phone':
+          _phoneController.text = value;
+          break;
+        case 'move':
+          _moveTypeController.text = value;
+          break;
+        case 'pickup':
+          _pickupController.text = value;
+          break;
+        case 'dropoff':
+          _dropoffController.text = value;
+          break;
+      }
+    }
+  }
+
+  // Submit booking to Google Calendar (mock)
+  Future<void> submitBooking() async {
+    final title = 'Move Booking - ${_nameController.text}';
+    final dateTime = DateTime.now().add(Duration(days: 1)); // example
+    await GoogleCalendarService.addEvent(title, dateTime);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Booking submitted to Google Calendar!')),
+    );
+
+    // Clear form
+    _formKey.currentState?.reset();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('QR Booking & Google Calendar')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                ElevatedButton(
+                  onPressed: scanQRCode,
+                  child: Text('Scan QR Code'),
+                ),
+                SizedBox(height: 10),
+                Text('Scanned QR: $scannedCode'),
+                SizedBox(height: 20),
+
+                // Booking Form Fields
+                TextFormField(
+                  controller: _nameController,
+                  decoration: InputDecoration(labelText: 'Full Name'),
+                ),
+                TextFormField(
+                  controller: _emailController,
+                  decoration: InputDecoration(labelText: 'Email'),
+                ),
+                TextFormField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(labelText: 'Phone Number'),
+                ),
+                TextFormField(
+                  controller: _moveTypeController,
+                  decoration: InputDecoration(labelText: 'Move Type'),
+                ),
+                TextFormField(
+                  controller: _pickupController,
+                  decoration: InputDecoration(labelText: 'Pickup Address'),
+                ),
+                TextFormField(
+                  controller: _dropoffController,
+                  decoration: InputDecoration(labelText: 'Drop-off Address'),
+                ),
+
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: submitBooking,
+                  child: Text('Submit Booking'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
